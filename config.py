@@ -12,8 +12,8 @@ BOT_TOKEN = getenv("BOT_TOKEN", None)
 
 # ===============================================
 
-OWNER_ID = int(getenv("OWNER_ID", 7473021518))
-OWNER_USERNAME = getenv("OWNER_USERNAME", "TheSigmaCoder")
+OWNER_ID = int(getenv("OWNER_ID", 7886148791))
+OWNER_USERNAME = getenv("OWNER_USERNAME", "Ankitgupta21444")
 LOGGER_ID = int(getenv("LOGGER_ID", None))
 
 # ===============================================
@@ -33,7 +33,7 @@ HEROKU_API_KEY = getenv("HEROKU_API_KEY", None)
 
 # ===============================================
 
-UPSTREAM_REPO = getenv("UPSTREAM_REPO", "https://github.com/TEAMPURVI/SONALI_MUSIC")
+UPSTREAM_REPO = getenv("UPSTREAM_REPO", "https://github.com/ultron-probot/starmusic")
 UPSTREAM_BRANCH = getenv("UPSTREAM_BRANCH", "master")
 GIT_TOKEN = getenv("GIT_TOKEN", None)  
 
