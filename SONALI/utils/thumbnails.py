@@ -12,10 +12,6 @@ from py_yt import VideosSearch
 def clear(text):
     return re.sub("\s+", " ", text).strip()
 
-def short_title(title):
-    words = title.split()
-    return " ".join(words[:5]) + ("..." if len(words) > 5 else "")
-
 async def get_thumb(videoid):
     if os.path.isfile(f"cache/{videoid}.png"):
         return f"cache/{videoid}.png"
@@ -27,7 +23,6 @@ async def get_thumb(videoid):
             try:
                 title = result["title"]
                 title = re.sub("\W+", " ", title)
-                title = short_title(title)
             except:
                 title = "Unsupported Title"
 
@@ -48,6 +43,7 @@ async def get_thumb(videoid):
             except:
                 channel = "Unknown Channel"
 
+        # -------- DOWNLOAD YT THUMB --------
         async with aiohttp.ClientSession() as session:
             async with session.get(thumbnail) as resp:
                 if resp.status == 200:
@@ -62,32 +58,28 @@ async def get_thumb(videoid):
         background = enhancer.enhance(0.45)
         draw = ImageDraw.Draw(background)
 
-        for _ in range(240):
+        # ---- WHITE SPRINKLE ----
+        for _ in range(260):
             x = random.randint(0, 1280)
             y = random.randint(0, 720)
             r = random.randint(1, 3)
             draw.ellipse((x, y, x+r, y+r), fill="white")
 
+        # ---- MUSIC NOTE SPRINKLE BACKGROUND ----
         music_font = ImageFont.truetype("SONALI/assets/font.ttf", 28)
         for _ in range(18):
             x = random.randint(100, 1180)
-            y = random.randint(60, 580)
+            y = random.randint(40, 500)
             draw.text((x, y), "♪", fill="white", font=music_font)
 
-        # ============ DOUBLE LINE DIAMONDS ============
+        # ============ DIAMONDS (UP SHIFT) ============
         diamond = Image.new("RGBA", (260, 260), (255,255,255,0))
         ddraw = ImageDraw.Draw(diamond)
 
         ddraw.polygon(
             [(130,0),(260,130),(130,260),(0,130)],
-            outline="orange",
-            width=4
-        )
-
-        ddraw.polygon(
-            [(130,10),(250,130),(130,250),(10,130)],
-            outline="lime",
-            width=4
+            outline="white",
+            width=6
         )
 
         try:
@@ -97,11 +89,12 @@ async def get_thumb(videoid):
         except Exception as e:
             print("diamond_note.png load error:", e)
 
-        background.paste(diamond, (20, 160), diamond)
-        background.paste(diamond, (1000, 160), diamond)
+        # MOVE DIAMONDS UP
+        background.paste(diamond, (40, 70), diamond)
+        background.paste(diamond, (980, 70), diamond)
 
-        # ============ CENTER CIRCLE ============
-        CIRCLE_SIZE = 420
+        # ============ CENTER CIRCLE (SMALLER + UP) ============
+        CIRCLE_SIZE = 380
         yt_thumb = youtube.resize((CIRCLE_SIZE, CIRCLE_SIZE))
 
         mask = Image.new("L", (CIRCLE_SIZE, CIRCLE_SIZE), 0)
@@ -111,32 +104,34 @@ async def get_thumb(videoid):
         circ = Image.new("RGBA", (CIRCLE_SIZE, CIRCLE_SIZE))
         circ.paste(yt_thumb, (0,0), mask)
 
+        # ============ MULTI-LAYER CIRCLES + SPIKES ============
         RING_PADDING = 45
         ring_size = CIRCLE_SIZE + (RING_PADDING * 2)
 
         ring = Image.new("RGBA", (ring_size, ring_size), (0,0,0,0))
         rdraw = ImageDraw.Draw(ring)
 
-        rdraw.ellipse(
-            (10, 10, ring_size-10, ring_size-10),
-            outline="white",
-            width=5
-        )
+        # 3 LAYER CIRCLES
+        rdraw.ellipse((10,10,ring_size-10,ring_size-10), outline="white", width=5)
+        rdraw.ellipse((35,35,ring_size-35,ring_size-35), outline="white", width=3)
+        rdraw.ellipse((60,60,ring_size-60,ring_size-60), outline="white", width=2)
 
         center = ring_size // 2
         radius = (ring_size // 2) - 12
 
-        for angle in range(0, 360, 6):
+        # DENSER + THICKER SPIKES
+        for angle in range(0, 360, 5):
             rad = math.radians(angle)
             x1 = center + int(radius * math.cos(rad))
             y1 = center + int(radius * math.sin(rad))
-            spike_length = random.randint(12, 55)
+            spike_length = random.randint(18, 65)
             x2 = center + int((radius + spike_length) * math.cos(rad))
             y2 = center + int((radius + spike_length) * math.sin(rad))
-            rdraw.line([(x1, y1), (x2, y2)], fill="white", width=4)
+            rdraw.line([(x1, y1), (x2, y2)], fill="white", width=5)
 
-        ring_x = 390
-        ring_y = 80
+        # MOVE CIRCLE UP
+        ring_x = 360
+        ring_y = -10
         circle_x = ring_x + RING_PADDING
         circle_y = ring_y + RING_PADDING
 
@@ -144,11 +139,13 @@ async def get_thumb(videoid):
         background.paste(circ, (circle_x, circle_y), circ)
 
         # ============ FONTS ============
-        arial = ImageFont.truetype("SONALI/assets/font2.ttf", 30)
-        font = ImageFont.truetype("SONALI/assets/font.ttf", 32)
-        bold_font = ImageFont.truetype("SONALI/assets/font.ttf", 34)
-        small_neon = ImageFont.truetype("SONALI/assets/font.ttf", 22)
-        icon_font = ImageFont.truetype("SONALI/assets/font.ttf", 40)
+        arial = ImageFont.truetype("SONALI/assets/font2.ttf", 26)
+        font = ImageFont.truetype("SONALI/assets/font.ttf", 28)
+        bold_font = ImageFont.truetype("SONALI/assets/font.ttf", 30)
+        small_neon = ImageFont.truetype("SONALI/assets/font.ttf", 20)
+
+        # DejaVu for buttons
+        icon_font = ImageFont.truetype("SONALI/assets/DejaVuSans.ttf", 42)
 
         # WATERMARK
         text_size = draw.textsize("@Starmusic by devil", font=font)
@@ -159,42 +156,35 @@ async def get_thumb(videoid):
             font=font,
         )
 
-        draw.text((980, 60), "   Credit", fill="cyan", font=small_neon)
-        draw.text((980, 85), "@Ankitgupta21444", fill="white", font=small_neon)
+        draw.text((980, 40), "Credit", fill="cyan", font=small_neon)
+        draw.text((980, 65), "@Ankitgupta21444", fill="white", font=small_neon)
 
+        # CHANNEL + VIEWS (GREEN)
         draw.text(
-            (55, 540),
+            (55, 520),
             f"{channel} | {views[:23]}",
-            fill="white",
+            fill=(0, 255, 0),
             font=arial,
         )
 
-        # ===== CENTER TITLE (CYAN) =====
-        title_w, _ = draw.textsize(title, font=font)
-        title_x = (1280 - title_w) // 2
+        # TITLE (CENTER UNDER CIRCLE)
+        tw, _ = draw.textsize(title, font=font)
         draw.text(
-            (title_x, 580),
+            ((1280 - tw)//2, 560),
             title,
             fill="cyan",
             font=font,
         )
 
-        # ===== TIMELINE (VISIBLE + CENTER) =====
-        timeline_text = "❍━━━ლ━━━❍"
-        tw, _ = draw.textsize(timeline_text, font=bold_font)
-        tx = (1280 - tw) // 2
-        ty = 620
-        draw.text((tx, ty), timeline_text, fill="white", font=bold_font)
+        # ===== MEDIUM WHITE CENTER TIMELINE =====
+        timeline = "❍━━━ლ━━━❍"
+        tw, _ = draw.textsize(timeline, font=bold_font)
+        draw.text(((1280-tw)//2, 600), timeline, fill="white", font=bold_font)
 
-        # ===== PLAYER CONTROLS (SELF DRAWN) =====
-        cx = 420
-        base_y = 660
-
-        draw.text((cx, base_y), "🔀", fill="white", font=icon_font)
-        draw.text((cx + 120, base_y), "⏮", fill="white", font=icon_font)
-        draw.text((cx + 240, base_y), "⏯", fill="white", font=icon_font)
-        draw.text((cx + 360, base_y), "⏭", fill="white", font=icon_font)
-        draw.text((cx + 480, base_y), "🔁", fill="white", font=icon_font)
+        # ===== PLAYER CONTROLS (NO IMAGE) =====
+        controls = "🔀   ⏮   ▶️   ⏭   🔁"
+        cw, _ = draw.textsize(controls, font=icon_font)
+        draw.text(((1280-cw)//2, 645), controls, fill="white", font=icon_font)
 
         try:
             os.remove(f"cache/thumb{videoid}.png")
