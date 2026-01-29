@@ -5,7 +5,7 @@ from pyrogram import Client, filters
 from pyrogram.types import Message
 
 from config import REMOVE_BG_API_KEY
-
+print("🔥 rmbg plugin loaded")
 
 @Client.on_message(filters.command("rmbg") & filters.reply)
 async def remove_bg(client: Client, message: Message):
