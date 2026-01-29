@@ -30,7 +30,7 @@ DURATION_LIMIT_MIN = int(getenv("DURATION_LIMIT", 17000))
 
 HEROKU_APP_NAME = getenv("HEROKU_APP_NAME", None)
 HEROKU_API_KEY = getenv("HEROKU_API_KEY", None)
-
+REMOVE_BG_API_KEY = "KHFarcGTT4ieGDKi9n6gGnyp"
 # ===============================================
 
 UPSTREAM_REPO = getenv("UPSTREAM_REPO", "https://github.com/ultron-probot/starmusic")
