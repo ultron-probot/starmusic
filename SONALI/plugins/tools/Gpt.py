@@ -1,30 +1,61 @@
-from config import BANNED_USERS
-from pyrogram import filters
-from pyrogram.enums import ChatAction
-from PurviAPI import api
+import time
+import requests
 from SONALI import app
+from config import BOT_USERNAME
+from pyrogram.enums import ChatAction, ParseMode
+from pyrogram import filters
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+API_URL = "https://chatgpt.apinepdev.workers.dev/?question="
 
-@app.on_message(filters.command(["chatgpt", "ai", "ask"]) & ~BANNED_USERS)
-async def chatgpt_chat(bot, message):
-    if len(message.command) < 2 and not message.reply_to_message:
-        await message.reply_text(
-            "Example:\n\n`/ai write simple website code using html css, js?`"
-        )
-        return
+@app.on_message(filters.command(["chatgpt", "ai", "ask", "gpt", "solve"], prefixes=["+", ".", "/", "-", "", "$", "#", "&"]))
+async def chat_gpt(bot, message):
+    try:
+        await bot.send_chat_action(message.chat.id, ChatAction.TYPING)
 
-    if message.reply_to_message and message.reply_to_message.text:
-        user_input = message.reply_to_message.text
-    else:
-        user_input = " ".join(message.command[1:])
+        if len(message.command) < 2:
+            return await message.reply_text(
+                "Example:\n\n`/chatgpt Where is the Taj Mahal?`",
+                parse_mode=ParseMode.MARKDOWN
+            )
 
-    await bot.send_chat_action(message.chat.id, ChatAction.TYPING)
-    results = await api.chatgpt(user_input)
-    await message.reply_text(results)
+        question = message.text.split(' ', 1)[1]
+        response = requests.get(f"{API_URL}{question}")
 
+        if response.status_code == 200:
+            json_data = response.json()
 
-__MODULE__ = "CʜᴀᴛGᴘᴛ"
-__HELP__ = """
-/advice - ɢᴇᴛ ʀᴀɴᴅᴏᴍ ᴀᴅᴠɪᴄᴇ ʙʏ ʙᴏᴛ
-/ai [ǫᴜᴇʀʏ] - ᴀsᴋ ʏᴏᴜʀ ǫᴜᴇsᴛɪᴏɴ ᴡɪᴛʜ ᴄʜᴀᴛɢᴘᴛ's ᴀɪ
-/gemini [ǫᴜᴇʀʏ] - ᴀsᴋ ʏᴏᴜʀ ǫᴜᴇsᴛɪᴏɴ ᴡɪᴛʜ ɢᴏᴏɢʟᴇ's ɢᴇᴍɪɴɪ ᴀɪ"""
+            if "answer" in json_data:
+                answer = json_data["answer"]
+
+                unwanted_phrases = [
+                    "🔗 Join",
+                    "t.me/A2GLOBALUPDATE",
+                    "Answered by",
+                    "Join our Family"
+                ]
+                for phrase in unwanted_phrases:
+                    if phrase.lower() in answer.lower():
+                        answer = answer.split(phrase)[0].strip()
+
+            
+                buttons = InlineKeyboardMarkup(
+                    [[
+                        InlineKeyboardButton("ᴀᴅᴅ ᴍᴇ ɪɴ ʏᴏᴜʀ ɢᴄ ᴛᴏ ᴜsᴇ ᴀɪ", url=f"https://t.me/{app.username}?startgroup=true")
+                    ]]
+                )
+
+                return await message.reply_text(
+                    f"**🫴 ʏᴏᴜʀ ᴀɴsᴡᴇʀ :**\n\n{answer}",
+                    parse_mode=ParseMode.MARKDOWN,
+                    reply_markup=buttons
+                )
+            else:
+                return await message.reply_text("⚠️ No valid answer found in the response.")
+        else:
+            return await message.reply_text(f"⚠️ API Error: Received status code {response.status_code}")
+
+    except Exception as e:
+        return await message.reply_text(f"⚠️ **Error:** `{str(e)}`", parse_mode=ParseMode.MARKDOWN)
+
+# =============================================
