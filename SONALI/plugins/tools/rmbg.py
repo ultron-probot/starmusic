@@ -17,13 +17,12 @@ print("🔥 RMBG tool loaded")
     )
 )
 async def rmbg_command(bot, message):
-    # ===== reply check =====
+
     if not message.reply_to_message:
         return await message.reply_text("❌ Kisi photo pe reply karke command use karo.")
 
     reply = message.reply_to_message
 
-    # ===== media check =====
     if not (reply.photo or reply.document):
         return await message.reply_text("❌ Sirf image photo/document pe reply karo.")
 
@@ -33,17 +32,14 @@ async def rmbg_command(bot, message):
     await bot.send_chat_action(message.chat.id, ChatAction.UPLOAD_PHOTO)
     status = await message.reply_text("🧠 Background remove ho raha hai...")
 
-    # ===== filename handling =====
+    # ===== filename =====
     if reply.document and reply.document.file_name:
-        original_name, ext = os.path.splitext(reply.document.file_name)
-        ext = ext.lstrip(".") or "png"
+        base_name = os.path.splitext(reply.document.file_name)[0]
     else:
-        # Photo has NO filename in Pyrogram
-        original_name = "image"
-        ext = "png"
+        base_name = "image"
 
-    input_file = f"rmbg_input_{message.id}.{ext}"
-    output_file = f"{original_name}_nobg.{ext}"
+    input_file = f"rmbg_input_{message.id}.png"
+    output_file = f"{base_name}_nobg.png"
 
     try:
         await reply.download(input_file)
@@ -51,7 +47,12 @@ async def rmbg_command(bot, message):
         async with aiohttp.ClientSession() as session:
             with open(input_file, "rb") as img:
                 form = aiohttp.FormData()
-                form.add_field("image_file", img)
+                form.add_field(
+                    "image_file",
+                    img,
+                    filename="image.png",
+                    content_type="image/png"
+                )
                 form.add_field("size", "auto")
 
                 async with session.post(
@@ -62,12 +63,15 @@ async def rmbg_command(bot, message):
                 ) as resp:
 
                     if resp.status != 200:
+                        error_text = await resp.text()
                         return await status.edit(
-                            "❌ Background remove nahi ho paya.\n"
-                            "⚠️ API error / limit ho sakta hai."
+                            f"❌ Remove.bg API error ({resp.status})"
                         )
 
                     content = await resp.read()
+
+        if not content:
+            return await status.edit("❌ Empty response from Remove.bg.")
 
         with open(output_file, "wb") as f:
             f.write(content)
