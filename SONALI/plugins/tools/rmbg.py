@@ -1,5 +1,6 @@
 import os
 import aiohttp
+import traceback
 
 from SONALI import app
 from config import REMOVE_BG_API_KEY
@@ -18,21 +19,31 @@ print("🔥 RMBG tool loaded")
 )
 async def rmbg_command(bot, message):
 
+    # ===== reply check =====
     if not message.reply_to_message:
-        return await message.reply_text("❌ Kisi photo pe reply karke command use karo.")
+        return await message.reply_text(
+            "❌ Kisi photo pe reply karke `/rmbg` use karo."
+        )
 
     reply = message.reply_to_message
 
+    # ===== media check =====
     if not (reply.photo or reply.document):
-        return await message.reply_text("❌ Sirf image photo/document pe reply karo.")
+        return await message.reply_text(
+            "❌ Sirf image photo ya document pe reply karo."
+        )
 
     if not REMOVE_BG_API_KEY:
         return await message.reply_text("❌ Remove.bg API key missing.")
 
-    await bot.send_chat_action(message.chat.id, ChatAction.UPLOAD_PHOTO)
+    try:
+        await bot.send_chat_action(message.chat.id, ChatAction.UPLOAD_PHOTO)
+    except Exception:
+        pass
+
     status = await message.reply_text("🧠 Background remove ho raha hai...")
 
-    # ===== filename =====
+    # ===== filename handling =====
     if reply.document and reply.document.file_name:
         base_name = os.path.splitext(reply.document.file_name)[0]
     else:
@@ -42,8 +53,10 @@ async def rmbg_command(bot, message):
     output_file = f"{base_name}_nobg.png"
 
     try:
+        # Download image
         await reply.download(input_file)
 
+        # Call remove.bg API
         async with aiohttp.ClientSession() as session:
             with open(input_file, "rb") as img:
                 form = aiohttp.FormData()
@@ -51,7 +64,7 @@ async def rmbg_command(bot, message):
                     "image_file",
                     img,
                     filename="image.png",
-                    content_type="image/png"
+                    content_type="image/png",
                 )
                 form.add_field("size", "auto")
 
@@ -59,33 +72,47 @@ async def rmbg_command(bot, message):
                     "https://api.remove.bg/v1.0/removebg",
                     data=form,
                     headers={"X-Api-Key": REMOVE_BG_API_KEY},
-                    timeout=aiohttp.ClientTimeout(total=60),
+                    timeout=aiohttp.ClientTimeout(total=90),
                 ) as resp:
 
                     if resp.status != 200:
-                        error_text = await resp.text()
-                        return await status.edit(
-                            f"❌ Remove.bg API error ({resp.status})"
+                        text = await resp.text()
+                        await status.edit(
+                            f"❌ Remove.bg API error\n"
+                            f"Status: `{resp.status}`"
                         )
+                        print("RMBG API ERROR:", resp.status, text)
+                        return
 
                     content = await resp.read()
 
         if not content:
-            return await status.edit("❌ Empty response from Remove.bg.")
+            await status.edit("❌ Remove.bg ne empty response diya.")
+            return
 
         with open(output_file, "wb") as f:
             f.write(content)
 
         await message.reply_document(
             output_file,
-            caption=f"✅ Background removed\n📁 `{output_file}`"
+            caption=f"✅ Background removed\n📁 `{output_file}`",
         )
         await status.delete()
 
     except Exception as e:
-        await status.edit("❌ Image process karte waqt error aaya.")
+        # 🔥 REAL ERROR OUTPUT
+        err = "".join(traceback.format_exception_only(type(e), e)).strip()
+        print("RMBG ERROR:", err)
+
+        await status.edit(
+            "❌ RMBG Error aaya:\n"
+            f"`{err}`"
+        )
 
     finally:
         for f in (input_file, output_file):
             if os.path.exists(f):
-                os.remove(f)
+                try:
+                    os.remove(f)
+                except Exception:
+                    pass
