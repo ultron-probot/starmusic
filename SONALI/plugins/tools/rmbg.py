@@ -6,7 +6,6 @@ from SONALI import app
 from config import REMOVE_BG_API_KEY
 from pyrogram import filters
 from pyrogram.enums import ChatAction
-from pyrogram.types import InputFile
 
 
 print("🔥 RMBG tool loaded")
@@ -20,6 +19,7 @@ print("🔥 RMBG tool loaded")
 )
 async def rmbg_command(bot, message):
 
+    # ===== Reply check =====
     if not message.reply_to_message:
         return await message.reply_text(
             "❌ Kisi photo pe reply karke `/rmbg` use karo."
@@ -27,6 +27,7 @@ async def rmbg_command(bot, message):
 
     reply = message.reply_to_message
 
+    # ===== Media check =====
     if not (reply.photo or reply.document):
         return await message.reply_text(
             "❌ Sirf image photo ya document pe reply karo."
@@ -43,13 +44,13 @@ async def rmbg_command(bot, message):
     status = await message.reply_text("🧠 Background remove ho raha hai...")
 
     try:
-        # 🔥 Download image into memory (BYTES)
+        # 🔥 Download image in memory (bytes)
         image_bytes = await reply.download(in_memory=True)
 
         if not image_bytes:
             return await status.edit("❌ Image download failed.")
 
-        # Determine filename
+        # Filename handling
         if reply.document and reply.document.file_name:
             base_name = reply.document.file_name.rsplit(".", 1)[0]
         else:
@@ -57,7 +58,7 @@ async def rmbg_command(bot, message):
 
         output_filename = f"{base_name}_nobg.png"
 
-        # 🔥 Send bytes directly to remove.bg
+        # 🔥 Send image bytes to remove.bg
         async with aiohttp.ClientSession() as session:
             form = aiohttp.FormData()
             form.add_field(
@@ -77,24 +78,20 @@ async def rmbg_command(bot, message):
 
                 if resp.status != 200:
                     text = await resp.text()
-                    await status.edit(
-                        f"❌ Remove.bg API error\n"
-                        f"Status: `{resp.status}`"
-                    )
                     print("RMBG API ERROR:", resp.status, text)
-                    return
+                    return await status.edit(
+                        f"❌ Remove.bg API error\nStatus: `{resp.status}`"
+                    )
 
                 result_bytes = await resp.read()
 
         if not result_bytes:
             return await status.edit("❌ Empty response from Remove.bg.")
 
-        # 🔥 Send result back (NO FILE SYSTEM)
+        # 🔥 Send result back to chat (no InputFile)
         await message.reply_document(
-            document=InputFile(
-                io.BytesIO(result_bytes),
-                filename=output_filename
-            ),
+            document=io.BytesIO(result_bytes),
+            file_name=output_filename,
             caption=f"✅ Background removed\n📁 `{output_filename}`"
         )
         await status.delete()
