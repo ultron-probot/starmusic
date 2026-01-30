@@ -1,35 +1,50 @@
 import os
 import aiohttp
+import mimetypes
 
-from pyrogram import Client, filters
-from pyrogram.types import Message
-
+from SONALI import app
 from config import REMOVE_BG_API_KEY
-from SONALI.utils.decorators.language import language
+from pyrogram import filters
+from pyrogram.enums import ChatAction
+
 
 print("🔥 RMBG tool loaded")
 
 
-@Client.on_message(filters.command("rmbg") & filters.reply)
-@language
-async def rmbg_command(client: Client, message: Message, _):
+@app.on_message(
+    filters.command(
+        ["rmbg", "removebg"],
+        prefixes=["+", ".", "/", "-", "", "$", "#", "&"]
+    )
+    & filters.reply
+)
+async def rmbg_command(bot, message):
     reply = message.reply_to_message
 
     if not reply or not reply.photo:
-        await message.reply_text("❌ Kisi photo pe reply karo.")
-        return
+        return await message.reply_text("❌ Kisi photo pe reply karo.")
 
     if not REMOVE_BG_API_KEY:
-        await message.reply_text("❌ Remove.bg API key missing.")
-        return
+        return await message.reply_text("❌ Remove.bg API key missing.")
 
+    await bot.send_chat_action(message.chat.id, ChatAction.UPLOAD_PHOTO)
     status = await message.reply_text("🧠 Background remove ho raha hai...")
 
-    input_file = f"rmbg_{message.id}.png"
-    output_file = f"rmbg_out_{message.id}.png"
+    # ===== filename handling =====
+    original_name = "image"
+    ext = "png"
+
+    if reply.photo.file_name:
+        original_name, ext = os.path.splitext(reply.photo.file_name)
+        ext = ext.replace(".", "") or "png"
+
+    input_file = f"rmbg_input_{message.id}.{ext}"
+    output_file = f"{original_name}_nobg.{ext}"
 
     try:
         await reply.download(input_file)
+
+        success = False
 
         async with aiohttp.ClientSession() as session:
             with open(input_file, "rb") as img:
@@ -44,26 +59,29 @@ async def rmbg_command(client: Client, message: Message, _):
                     timeout=aiohttp.ClientTimeout(total=60),
                 ) as resp:
 
-                    if resp.status != 200:
-                        await status.edit("❌ Remove.bg API error.")
-                        return
+                    if resp.status == 200:
+                        content = await resp.read()
+                        with open(output_file, "wb") as f:
+                            f.write(content)
+                        success = True
 
-                    result = await resp.read()
+        # ===== FALLBACK MESSAGE =====
+        if not success:
+            return await status.edit(
+                "❌ Background remove nahi ho paya.\n"
+                "⚠️ API limit / error ho sakta hai."
+            )
 
-        with open(output_file, "wb") as f:
-            f.write(result)
-
-        await message.reply_photo(
+        await message.reply_document(
             output_file,
-            caption="✅ Background removed"
+            caption=f"✅ Background removed\n📁 `{output_file}`"
         )
-
         await status.delete()
 
     except Exception:
         await status.edit("❌ Image process karte waqt error aaya.")
 
     finally:
-        for file in (input_file, output_file):
-            if os.path.exists(file):
-                os.remove(file)
+        for f in (input_file, output_file):
+            if os.path.exists(f):
+                os.remove(f)
