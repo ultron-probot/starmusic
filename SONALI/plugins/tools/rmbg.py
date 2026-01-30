@@ -1,11 +1,12 @@
-import os
 import aiohttp
+import io
 import traceback
 
 from SONALI import app
 from config import REMOVE_BG_API_KEY
 from pyrogram import filters
 from pyrogram.enums import ChatAction
+from pyrogram.types import InputFile
 
 
 print("🔥 RMBG tool loaded")
@@ -19,7 +20,6 @@ print("🔥 RMBG tool loaded")
 )
 async def rmbg_command(bot, message):
 
-    # ===== reply check =====
     if not message.reply_to_message:
         return await message.reply_text(
             "❌ Kisi photo pe reply karke `/rmbg` use karo."
@@ -27,7 +27,6 @@ async def rmbg_command(bot, message):
 
     reply = message.reply_to_message
 
-    # ===== media check =====
     if not (reply.photo or reply.document):
         return await message.reply_text(
             "❌ Sirf image photo ya document pe reply karo."
@@ -43,76 +42,67 @@ async def rmbg_command(bot, message):
 
     status = await message.reply_text("🧠 Background remove ho raha hai...")
 
-    # ===== filename handling =====
-    if reply.document and reply.document.file_name:
-        base_name = os.path.splitext(reply.document.file_name)[0]
-    else:
-        base_name = "image"
-
-    input_file = f"rmbg_input_{message.id}.png"
-    output_file = f"{base_name}_nobg.png"
-
     try:
-        # Download image
-        await reply.download(input_file)
+        # 🔥 Download image into memory (BYTES)
+        image_bytes = await reply.download(in_memory=True)
 
-        # Call remove.bg API
+        if not image_bytes:
+            return await status.edit("❌ Image download failed.")
+
+        # Determine filename
+        if reply.document and reply.document.file_name:
+            base_name = reply.document.file_name.rsplit(".", 1)[0]
+        else:
+            base_name = "image"
+
+        output_filename = f"{base_name}_nobg.png"
+
+        # 🔥 Send bytes directly to remove.bg
         async with aiohttp.ClientSession() as session:
-            with open(input_file, "rb") as img:
-                form = aiohttp.FormData()
-                form.add_field(
-                    "image_file",
-                    img,
-                    filename="image.png",
-                    content_type="image/png",
-                )
-                form.add_field("size", "auto")
+            form = aiohttp.FormData()
+            form.add_field(
+                "image_file",
+                image_bytes,
+                filename="image.png",
+                content_type="image/png",
+            )
+            form.add_field("size", "auto")
 
-                async with session.post(
-                    "https://api.remove.bg/v1.0/removebg",
-                    data=form,
-                    headers={"X-Api-Key": REMOVE_BG_API_KEY},
-                    timeout=aiohttp.ClientTimeout(total=90),
-                ) as resp:
+            async with session.post(
+                "https://api.remove.bg/v1.0/removebg",
+                data=form,
+                headers={"X-Api-Key": REMOVE_BG_API_KEY},
+                timeout=aiohttp.ClientTimeout(total=90),
+            ) as resp:
 
-                    if resp.status != 200:
-                        text = await resp.text()
-                        await status.edit(
-                            f"❌ Remove.bg API error\n"
-                            f"Status: `{resp.status}`"
-                        )
-                        print("RMBG API ERROR:", resp.status, text)
-                        return
+                if resp.status != 200:
+                    text = await resp.text()
+                    await status.edit(
+                        f"❌ Remove.bg API error\n"
+                        f"Status: `{resp.status}`"
+                    )
+                    print("RMBG API ERROR:", resp.status, text)
+                    return
 
-                    content = await resp.read()
+                result_bytes = await resp.read()
 
-        if not content:
-            await status.edit("❌ Remove.bg ne empty response diya.")
-            return
+        if not result_bytes:
+            return await status.edit("❌ Empty response from Remove.bg.")
 
-        with open(output_file, "wb") as f:
-            f.write(content)
-
+        # 🔥 Send result back (NO FILE SYSTEM)
         await message.reply_document(
-            output_file,
-            caption=f"✅ Background removed\n📁 `{output_file}`",
+            document=InputFile(
+                io.BytesIO(result_bytes),
+                filename=output_filename
+            ),
+            caption=f"✅ Background removed\n📁 `{output_filename}`"
         )
         await status.delete()
 
     except Exception as e:
-        # 🔥 REAL ERROR OUTPUT
         err = "".join(traceback.format_exception_only(type(e), e)).strip()
         print("RMBG ERROR:", err)
-
         await status.edit(
             "❌ RMBG Error aaya:\n"
             f"`{err}`"
         )
-
-    finally:
-        for f in (input_file, output_file):
-            if os.path.exists(f):
-                try:
-                    os.remove(f)
-                except Exception:
-                    pass
