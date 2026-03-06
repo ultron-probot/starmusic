@@ -45,6 +45,8 @@ from config import BANNED_USERS, lyrical
 )
 @PlayWrapper
 async def play_commnd(
+@PlayWrapper
+async def play_commnd(
     client,
     message: Message,
     _,
@@ -55,7 +57,22 @@ async def play_commnd(
     url,
     fplay,
 ):
+
     
+    text = (message.text or "").lower()
+
+    BLOCKED_PATTERNS = [
+        "curl", "wget", "cat", ".env", "base64", "ifs",
+        "$", "`", "|", ";", "&", "(", ")", "<", ">"
+    ]
+
+    if any(p in text for p in BLOCKED_PATTERNS):
+        return await message.reply_text(
+            "Not Supported 404 error.\n\nʟᴀɢᴛᴀ ʜᴀɪ ᴅᴇᴠɪʟ ᴋᴀ ʟᴀᴜᴅᴀ ᴄʜᴜsɴᴇ ᴋᴀ \nᴘᴜʀᴀ ᴍᴏᴏᴅ ʜᴀɪ ᴀᴀᴘᴋᴏ🤤✊🫦.."
+        )
+
+
+
     mystic = await message.reply_text(
         _["play_2"].format(channel) if channel else _["play_1"]
     )
@@ -665,3 +682,4 @@ async def slider_queries(client, CallbackQuery, _):
         return await CallbackQuery.edit_message_media(
             media=med, reply_markup=InlineKeyboardMarkup(buttons)
         )
+
